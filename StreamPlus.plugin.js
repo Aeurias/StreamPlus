@@ -1,7 +1,7 @@
 /**
  * @name StreamPlus
  * @author Aeurias
- * @version 1.3.0
+ * @version 1.3.1
  * @source https://github.com/Aeurias/StreamPlus
  * @updateUrl https://raw.githubusercontent.com/Aeurias/StreamPlus/main/StreamPlus.plugin.js
  */
@@ -36,7 +36,7 @@ module.exports = (() => {
 			"authors": [{
 				"name": "Aeurias"
 			}],
-			"version": "1.3.0",
+			"version": "1.3.1",
 			"description": "Custom bitrate, FPS and resolution!",
 			"github": "https://github.com/Aeurias/StreamPlus",
 			"github_raw": "https://raw.githubusercontent.com/Aeurias/StreamPlus/main/StreamPlus.plugin.js"
@@ -104,9 +104,9 @@ module.exports = (() => {
 				getSettingsPanel() {
 					return Settings.SettingPanel.build(_ => this.saveAndUpdate(), ...[
 						new Settings.SettingGroup("Custom Screen Share Settings").append(...[
-							new Settings.Switch("High Quality Custom Screensharing", "'OpenH264' and/or 'Hardware Accelerated Encode': Enabled, with 'AV1 Video Codec': Disabled recommended in Discord's 'Voice & Video' setting panel. If you're on a very weak GPU disable everything and use CPU for encode.", this.settings.CustomScreenSharingMain, value => this.settings.CustomScreenSharingMain = value),
+							new Settings.Switch("High Quality Custom Screensharing", "'OpenH264' and 'Hardware Accelerated Encode': Enabled, with 'AV1 Video Codec': Disabled recommended in Discord's 'Voice & Video' setting panel.", this.settings.CustomScreenSharingMain, value => this.settings.CustomScreenSharingMain = value),
 							new Settings.Switch("Custom High Frame Rate Screenshare", "Enables beyond 60 FPS framerate for screenshare, upto 360 FPS or to limits of your encoder/PC.", this.settings.CustomSSFPSEnabled, value => this.settings.CustomSSFPSEnabled = value),
-							new Settings.Textbox("Custom FPS", "Values between 24-120 Recommended. 24 for anime/film, 72-90 for VR content to reduce encoder usage, 75-120 for everything else. Try to sync with ingame FPS for fluidity, and set a FPS limit ingame so you can free up some resources for encoding to work properly.", this.settings.CustomSSFPS,
+							new Settings.Textbox("Custom FPS", "Values between 24-120 Recommended. 24 for anime/film, 72-90 for VR content, 72-120 for everything else. Try to sync with ingame FPS for fluidity, and set a FPS limit ingame so you can free up some GPU resources for encoding to work properly.", this.settings.CustomSSFPS,
 								value => {
 									value = parseInt(value);
 									this.settings.CustomSSFPS = value;
@@ -130,19 +130,7 @@ module.exports = (() => {
 								})
 						]),
 						new Settings.SettingGroup("Extra Settings").append(
-							new Settings.Switch("Stream Settings Debug Button", "Adds a button to switch your resolution/fps quickly for testing", this.settings.SettingDebugButton, value => this.settings.SettingDebugButton = value),
-							new Settings.Switch("Custom Screenshare Resolution", "Force stream to run non standard or non source capture resolutions. Use Source instead of this.", this.settings.CustomSSResolutionEnabled, value => this.settings.CustomSSResolutionEnabled = value),
-							new Settings.Textbox("Resolution", "The custom resolution you want (in pixels height)", this.settings.CustomSSResolution,
-								value => {
-									value = parseInt(value, 10);
-									this.settings.CustomSSResolution = value;
-								}),
-							new Settings.Textbox("Voice Audio Bitrate", "Allows you to change the bitrate to whatever you want. Does not allow you to go over the voice channel's set bitrate but it does allow you to go much lower. (bitrate in kbps).", this.settings.voiceBitrate,
-								value => {
-									value = parseFloat(value);
-									this.settings.voiceBitrate = value;
-								}),
-							new Settings.Dropdown("Preferred Stream Codec", "Changes the screen share codec to the one set.", this.settings.StreamCodec, [{
+							new Settings.Dropdown("Preferred Stream Codec", "Forces the stream encode codec to the preferred selection.", this.settings.StreamCodec, [{
 									label: "Default/Disabled",
 									value: 0
 								},
@@ -162,9 +150,21 @@ module.exports = (() => {
 									label: "VP9",
 									value: 4
 								}
-							], value => this.settings.StreamCodec = value, {
-								searchable: true
-							})
+								], value => this.settings.StreamCodec = value, {
+									searchable: true
+								}),
+							new Settings.Switch("Custom Screenshare Resolution", "Force stream to run non standard or non source capture resolutions. Use Source instead of this.", this.settings.CustomSSResolutionEnabled, value => this.settings.CustomSSResolutionEnabled = value),
+							new Settings.Textbox("Resolution", "The custom resolution you want (in pixels height)", this.settings.CustomSSResolution,
+								value => {
+									value = parseInt(value, 10);
+									this.settings.CustomSSResolution = value;
+								}),
+							new Settings.Switch("Stream Settings Debug Button", "Adds a button to switch your resolution/fps quickly for testing", this.settings.SettingDebugButton, value => this.settings.SettingDebugButton = value),
+							new Settings.Textbox("Voice Audio Bitrate", "Allows you to change the bitrate to whatever you want. Does not allow you to go over the voice channel's set bitrate but it does allow you to go much lower. (bitrate in kbps).", this.settings.voiceBitrate,
+								value => {
+									value = parseFloat(value);
+									this.settings.voiceBitrate = value;
+								})
 						)
 					])
 				}
