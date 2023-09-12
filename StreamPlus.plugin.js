@@ -1,7 +1,7 @@
 /**
  * @name StreamPlus
  * @author Aeurias
- * @version 1.2.2
+ * @version 1.3.0
  * @source https://github.com/Aeurias/StreamPlus
  * @updateUrl https://raw.githubusercontent.com/Aeurias/StreamPlus/main/StreamPlus.plugin.js
  */
@@ -36,13 +36,14 @@ module.exports = (() => {
 			"authors": [{
 				"name": "Aeurias"
 			}],
-			"version": "1.2.2",
+			"version": "1.3.0",
 			"description": "Custom bitrate, FPS and resolution!",
 			"github": "https://github.com/Aeurias/StreamPlus",
 			"github_raw": "https://raw.githubusercontent.com/Aeurias/StreamPlus/main/StreamPlus.plugin.js"
 		},
 		"main": "StreamPlus.plugin.js"
 	};
+
 	return !global.ZeresPluginLibrary ? class {
 		constructor() {
 			this._config = config;
@@ -60,19 +61,19 @@ module.exports = (() => {
 			return config.info.version;
 		}
 		load() {
-			BdApi.showConfirmationModal("Library Missing", `The library plugin needed for ${config.info.name} is missing. Please click Download Now to install it.`, {
+			BdApi.UI.showConfirmationModal("Library Missing", `The library plugin needed for ${config.info.name} is missing. Please click Download Now to install it.`, {
 				confirmText: "Download Now",
 				cancelText: "Cancel",
 				onConfirm: () => {
 					require("request").get("https://rauenzi.github.io/BDPluginLibrary/release/0PluginLibrary.plugin.js", async (error, response, body) => {
-						if(error) return require("electron").shell.openExternal("https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js");
+						if (error) return require("electron").shell.openExternal("https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js");
 						await new Promise(r => require("fs").writeFile(require("path").join(BdApi.Plugins.folder, "0PluginLibrary.plugin.js"), body, r));
 					});
 				}
 			});
 		}
-		start() { }
-		stop() { }
+		start() {}
+		stop() {}
 	} : (([Plugin, Api]) => {
 		const plugin = (Plugin, Api) => {
 			const {
@@ -89,17 +90,15 @@ module.exports = (() => {
 					"CustomSSFPSEnabled": true,
 					"CustomSSFPS": 90,
 					"CustomSSResolutionEnabled": false,
-					"CustomSSResolution": 1440,
+					"CustomSSResolution": 0,
 					"CustomSSBitrateEnabled": true,
 					"SSminBitrate": 10000,
 					"SSmaxBitrate": 22000,
 					"SStargetBitrate": 14000,
-					"voiceBitrate": 384,
-					"audioSourcePID": 0,
-					"CameraSettingsEnabled": false,
-					"CameraWidth": -1,
-					"CameraHeight": -1,
-					"SettingDebugButton": false
+					"voiceBitrate": 128,
+					"SettingDebugButton": false,
+					"StreamCodec": 0,
+					"removeScreenshareUpsell": true
 				};
 				settings = Utilities.loadSettings(this.getName(), this.defaultSettings);
 				getSettingsPanel() {
@@ -112,38 +111,24 @@ module.exports = (() => {
 									value = parseInt(value);
 									this.settings.CustomSSFPS = value;
 								}),
-								new Settings.Switch("Custom Screensharing Encode Bitrates", "Enables custom bitrate for your streams for better banding, grain and texture details and remove horrible blockiness of Discord streams. VBR/ABR.", this.settings.CustomSSBitrateEnabled, value => this.settings.CustomSSBitrateEnabled = value),
-								new Settings.Textbox("Target Average Bitrate", "The target average bitrate (in kbps). Recommended to set 0.75x of Maximum Bitrate value, or at the desired CQ bitrate you would like the stream to be. 12-18000 recommended for 1440p/90 or 1080p/120, 18-28000 for 4K/60, 24-58000 for 4K/120", this.settings.SStargetBitrate,
+							new Settings.Switch("Custom Screensharing Encode Bitrates", "Enables custom bitrate for your streams for better banding, grain and texture details and remove horrible blockiness of Discord streams. VBR/ABR.", this.settings.CustomSSBitrateEnabled, value => this.settings.CustomSSBitrateEnabled = value),
+							new Settings.Textbox("Target Average Bitrate", "The target average bitrate (in kbps). Recommended to set 0.75x of Maximum Bitrate value, or at the desired CQ bitrate you would like the stream to be. 12-18000 recommended for 1440p/90 or 1080p/120, 18-28000 for 4K/60, 24-58000 for 4K/120", this.settings.SStargetBitrate,
 								value => {
 									value = parseFloat(value);
 									this.settings.SStargetBitrate = value;
-								
+
 								}),
-								new Settings.Textbox("Maximum Peak Bitrate", "The maximum peak bitrate the encoder will use (in kbps). Between 20-60000 Recommended for for all res/fps or set to 0.75x of your network's upload speed. For 4K/HFR set to target bitrate or 1.1x of target rate.", this.settings.SSmaxBitrate,
+							new Settings.Textbox("Maximum Peak Bitrate", "The maximum peak bitrate the encoder will use (in kbps). Between 20-60000 Recommended for for all res/fps or set to 0.75x of your network's upload speed. For 4K/HFR set to target bitrate or 1.1x of target rate.", this.settings.SSmaxBitrate,
 								value => {
 									value = parseFloat(value);
 									this.settings.SSmaxBitrate = value;
 								}),
-								new Settings.Textbox("Minimum Constant Bitrate", "The minimum constant bitrate (in kbps). 10-15000 is recommended, lower to 5-10000 for viewers with bad network.", this.settings.SSminBitrate,
+							new Settings.Textbox("Minimum Constant Bitrate", "The minimum constant bitrate (in kbps). 10-15000 is recommended, lower to 5-10000 for viewers with bad network.", this.settings.SSminBitrate,
 								value => {
 									value = parseFloat(value);
 									this.settings.SSminBitrate = value;
 								})
-							]
-						),
-						new Settings.SettingGroup("Custom Camera Share Settings").append(
-							new Settings.Switch("Custom Camera Share", "", this.settings.CameraSettingsEnabled, value => this.settings.CameraSettingsEnabled = value),
-							new Settings.Textbox("Camera Resolution Width", "Camera Resolution Width in pixels. 1280, 1920, 2560, 3840 etc. for 16:9. (Set to -1 to disable)", this.settings.CameraWidth,
-								value => {
-									value = parseInt(value);
-									this.settings.CameraWidth = value;
-							}),
-							new Settings.Textbox("Camera Resolution Height", "Camera Resolution Height in pixels. 720, 1080, 1440, 2560 etc. for 16:9. (Set to -1 to disable)", this.settings.CameraHeight,
-								value => {
-									value = parseInt(value);
-									this.settings.CameraHeight = value;
-							})
-						),
+						]),
 						new Settings.SettingGroup("Extra Settings").append(
 							new Settings.Switch("Stream Settings Debug Button", "Adds a button to switch your resolution/fps quickly for testing", this.settings.SettingDebugButton, value => this.settings.SettingDebugButton = value),
 							new Settings.Switch("Custom Screenshare Resolution", "Force stream to run non standard or non source capture resolutions. Use Source instead of this.", this.settings.CustomSSResolutionEnabled, value => this.settings.CustomSSResolutionEnabled = value),
@@ -151,92 +136,122 @@ module.exports = (() => {
 								value => {
 									value = parseInt(value, 10);
 									this.settings.CustomSSResolution = value;
-							}),
+								}),
 							new Settings.Textbox("Voice Audio Bitrate", "Allows you to change the bitrate to whatever you want. Does not allow you to go over the voice channel's set bitrate but it does allow you to go much lower. (bitrate in kbps).", this.settings.voiceBitrate,
-							value => {
-								value = parseFloat(value);
-								this.settings.voiceBitrate = value;
-							}),
-							new Settings.Textbox("Screen Share Audio Source", "[Advanced] Set this number to the PID of an application to stream that application's audio! Applies upon updating the screen share quality/window. (Set to 0 to disable)", this.settings.audioSourcePID,
-							value => {
-								value = parseInt(value);
-								this.settings.audioSourcePID = value;
+								value => {
+									value = parseFloat(value);
+									this.settings.voiceBitrate = value;
+								}),
+							new Settings.Dropdown("Preferred Stream Codec", "Changes the screen share codec to the one set.", this.settings.StreamCodec, [{
+									label: "Default/Disabled",
+									value: 0
+								},
+								{
+									label: "H.264",
+									value: 1
+								},
+								{
+									label: "AV1",
+									value: 2
+								},
+								{
+									label: "VP8",
+									value: 3
+								},
+								{
+									label: "VP9",
+									value: 4
+								}
+							], value => this.settings.StreamCodec = value, {
+								searchable: true
 							})
 						)
 					])
 				}
-				saveAndUpdate(){
+				saveAndUpdate() {
 					Utilities.saveSettings(this.getName(), this.settings);
 					BdApi.Patcher.unpatchAll("StreamPlus");
 					Patcher.unpatchAll();
-					if(this.settings.CustomSSFPS == 15) this.settings.CustomSSFPS = 16;
-					if(this.settings.CustomSSFPS == 30) this.settings.CustomSSFPS = 31;
-					if(this.settings.CustomSSFPS == 5) this.settings.CustomSSFPS = 6;
+					if (this.settings.CustomSSFPS == 15) this.settings.CustomSSFPS = 16;
+					if (this.settings.CustomSSFPS == 30) this.settings.CustomSSFPS = 31;
+					if (this.settings.CustomSSFPS == 5) this.settings.CustomSSFPS = 6;
 					this.videoQualityModule();
-					this.audioShare();
-					if(document.getElementById("qualityButton")) document.getElementById("qualityButton").remove();
-					if(document.getElementById("qualityMenu")) document.getElementById("qualityMenu").remove();
-					if(document.getElementById("qualityInput")) document.getElementById("qualityInput").remove();
+					if (document.getElementById("qualityButton")) document.getElementById("qualityButton").remove();
+					if (document.getElementById("qualityMenu")) document.getElementById("qualityMenu").remove();
+					if (document.getElementById("qualityInput")) document.getElementById("qualityInput").remove();
 					this.buttonCreate();
 					document.getElementById("qualityInput").addEventListener("input", this.updateQuick);
 					document.getElementById("qualityInputFPS").addEventListener("input", this.updateQuick);
-					if(!this.settings.SettingDebugButton){
-						if(document.getElementById("qualityButton") != undefined) document.getElementById("qualityButton").style.display = 'none'
-						if(document.getElementById("qualityMenu") != undefined) document.getElementById("qualityMenu").style.display = 'none'
+					if (!this.settings.SettingDebugButton) {
+						if (document.getElementById("qualityButton") != undefined) document.getElementById("qualityButton").style.display = 'none'
+						if (document.getElementById("qualityMenu") != undefined) document.getElementById("qualityMenu").style.display = 'none'
 					}
-					if(this.settings.CustomScreenSharingMain){
-						if(this.settings.CustomSSResolutionEnabled || this.settings.CustomSSFPSEnabled){
-							this.customVideoSettings();
-						}
-						BdApi.Patcher.instead("StreamPlus", permissions, "canStreamMidQuality", () => {
-							return true;
-						});
-						BdApi.Patcher.instead("StreamPlus", permissions, "canStreamMedQuality", () => {
-							return true;
-						});
-						BdApi.Patcher.instead("StreamPlus", permissions, "canStreamHighQuality", () => {
-							return true;
-						});
+					if (this.settings.CustomScreenSharingMain) {
+						this.customVideoSettings();
+					}
+
+					try {
+						BdApi.DOM.removeStyle("StreamPlus")
+					} catch (err) {
+						console.log(err)
+					}
+
+					if (this.settings.removeScreenshareUpsell) {
+						BdApi.DOM.addStyle("StreamPlus", `
+						[class*="upsellBanner"] {
+						  display: none;
+						  visibility: hidden;
+						}`);
 					}
 				}
 				async customVideoSettings() {
 					const StreamButtons = WebpackModules.getByProps("LY", "aW", "ws");
-					if(this.settings.CustomSSResolutionEnabled){
-						if(this.settings.CustomSSResolution != 0){
-							StreamButtons.LY.RESOLUTION_SOURCE = this.settings.CustomSSResolution;
-							StreamButtons.ND[0].resolution = this.settings.CustomSSResolution;
-							StreamButtons.ND[1].resolution = this.settings.CustomSSResolution;
-							StreamButtons.ND[2].resolution = this.settings.CustomSSResolution;
-							StreamButtons.ND[3].resolution = this.settings.CustomSSResolution;
-							StreamButtons.WC[2].value = this.settings.CustomSSResolution;
-							delete StreamButtons.WC[2].label;
-							StreamButtons.WC[2].label = this.settings.CustomSSResolution.toString();
-							StreamButtons.km[3].value = this.settings.CustomSSResolution;
-							delete StreamButtons.km[3].label;
-							StreamButtons.km[3].label = this.settings.CustomSSResolution + "p";
-						}
-					}
-					if(!this.settings.CustomSSResolutionEnabled || (this.settings.CustomSSResolution == 0)){
-						StreamButtons.LY.RESOLUTION_SOURCE = 0;
-						StreamButtons.ND[0].resolution = 0;
-						StreamButtons.ND[1].resolution = 0;
-						StreamButtons.ND[2].resolution = 0;
-						StreamButtons.ND[3].resolution = 0;
-						StreamButtons.WC[2].value = 0;
+					if (this.settings.CustomSSResolutionEnabled && this.settings.CustomSSResolution != 0) {
+						delete StreamButtons.LY.RESOLUTION_1440
+						StreamButtons.LY.RESOLUTION_1440 = this.settings.CustomSSResolution;
+						StreamButtons.ND[4].resolution = this.settings.CustomSSResolution;
+						StreamButtons.ND[5].resolution = this.settings.CustomSSResolution;
+						StreamButtons.ND[6].resolution = this.settings.CustomSSResolution;
+						StreamButtons.WC[2].value = this.settings.CustomSSResolution;
 						delete StreamButtons.WC[2].label;
-						StreamButtons.WC[2].label = "Source";
-						StreamButtons.km[3].value = 0;
+						StreamButtons.WC[2].label = this.settings.CustomSSResolution.toString();
+						StreamButtons.km[3].value = this.settings.CustomSSResolution;
 						delete StreamButtons.km[3].label;
-						StreamButtons.km[3].label = "Source";
+						StreamButtons.km[3].label = this.settings.CustomSSResolution + "p";
 					}
+					if (!this.settings.CustomSSResolutionEnabled || (this.settings.CustomSSResolution == 0)) {
+						delete StreamButtons.LY.RESOLUTION_1440
+						StreamButtons.LY.RESOLUTION_1440 = 1440;
+						StreamButtons.ND[4].resolution = 1440;
+						StreamButtons.ND[5].resolution = 1440;
+						StreamButtons.ND[6].resolution = 1440;
+						StreamButtons.WC[2].value = 1440;
+						delete StreamButtons.WC[2].label;
+						StreamButtons.WC[2].label = "1440";
+						StreamButtons.km[3].value = 1440;
+						delete StreamButtons.km[3].label;
+						StreamButtons.km[3].label = "1440p";
+					}
+
+					function removeQualityParameters(x) {
+						try {
+							delete x.quality
+						} catch (err) {}
+						try {
+							delete x.guildPremiumTier
+						} catch (err) {}
+					}
+					StreamButtons.ND.forEach(removeQualityParameters)
+
 					function replace60FPSRequirements(x) {
-						if(x.fps != 30 && x.fps != 15 && x.fps != 5) x.fps = BdApi.getData("StreamPlus","settings").CustomSSFPS;
+						if (x.fps != 30 && x.fps != 15 && x.fps != 5) x.fps = BdApi.getData("StreamPlus", "settings").CustomSSFPS;
 					}
+
 					function restore60FPSRequirements(x) {
-						if(x.fps != 30 && x.fps != 15 && x.fps != 5) x.fps = 60;
+						if (x.fps != 30 && x.fps != 15 && x.fps != 5) x.fps = 60;
 					}
-					if(this.settings.CustomSSFPSEnabled){
-						if(this.CustomSSFPS != 60){
+					if (this.settings.CustomSSFPSEnabled) {
+						if (this.CustomSSFPS != 60) {
 							StreamButtons.ND.forEach(replace60FPSRequirements);
 							StreamButtons.af[2].value = this.settings.CustomSSFPS;
 							delete StreamButtons.af[2].label;
@@ -247,7 +262,7 @@ module.exports = (() => {
 							StreamButtons.ws.FPS_60 = this.settings.CustomSSFPS;
 						}
 					}
-					if(!this.settings.CustomSSFPSEnabled || this.CustomSSFPS == 60){
+					if (!this.settings.CustomSSFPSEnabled || this.CustomSSFPS == 60) {
 						StreamButtons.ND.forEach(restore60FPSRequirements);
 						StreamButtons.af[2].value = 60;
 						delete StreamButtons.af[2].label;
@@ -257,81 +272,81 @@ module.exports = (() => {
 						StreamButtons.k0[2].label = 60;
 						StreamButtons.ws.FPS_60 = 60;
 					}
-					if(BdApi.Webpack.getModule(BdApi.Webpack.Filters.byStrings("updateRemoteWantsFramerate"))){
-						let L = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byStrings("updateRemoteWantsFramerate")).prototype;
-						if(L){
-							BdApi.Patcher.instead("StreamPlus", L, "updateRemoteWantsFramerate", () => {
+					const updateRemoteWantsFramerate = WebpackModules.getByPrototypes("updateRemoteWantsFramerate");
+					if (updateRemoteWantsFramerate != undefined) {
+						let L = updateRemoteWantsFramerate.prototype;
+						BdApi.Patcher.instead("StreamPlus", L, "updateRemoteWantsFramerate", () => {
 							return
 						});
-						}
 						return
-					}else{
-						let R = await BdApi.Webpack.waitForModule(BdApi.Webpack.Filters.byStrings("updateRemoteWantsFramerate"));
-						if(R){
-							BdApi.Patcher.instead("StreamPlus", R, "updateRemoteWantsFramerate", () => {
+					}
+					if (updateRemoteWantsFramerate == undefined) {
+						await BdApi.Webpack.waitForModule(BdApi.Webpack.Filters.byPrototypeFields("updateRemoteWantsFramerate"));
+						const updateRemoteWantsFramerateMod = WebpackModules.getByPrototypes("updateRemoteWantsFramerate").prototype;
+						BdApi.Patcher.instead("StreamPlus", updateRemoteWantsFramerateMod, "updateRemoteWantsFramerate", () => {
 							return
 						});
-						}
+
 					}
 				}
-				updateQuick(){
+				updateQuick() {
+					let settings = BdApi.getData("StreamPlus", "settings");
 					parseInt(document.getElementById("qualityInput").value);
-					BdApi.getData("StreamPlus", "settings").CustomSSResolution = parseInt(document.getElementById("qualityInput").value);
+					settings.CustomSSResolution = parseInt(document.getElementById("qualityInput").value);
 					parseInt(document.getElementById("qualityInputFPS").value);
-					BdApi.getData("StreamPlus", "settings").CustomSSFPS = parseInt(document.getElementById("qualityInputFPS").value);
-					if(parseInt(document.getElementById("qualityInputFPS").value) == 15) BdApi.getData("StreamPlus", "settings").CustomSSFPS = 16;
-					if(parseInt(document.getElementById("qualityInputFPS").value) == 30) BdApi.getData("StreamPlus", "settings").CustomSSFPS = 31;
-					if(parseInt(document.getElementById("qualityInputFPS").value) == 5) BdApi.getData("StreamPlus", "settings").CustomSSFPS = 6;
-					
+					settings.CustomSSFPS = parseInt(document.getElementById("qualityInputFPS").value);
+					if (parseInt(document.getElementById("qualityInputFPS").value) == 15) settings.CustomSSFPS = 16;
+					if (parseInt(document.getElementById("qualityInputFPS").value) == 30) settings.CustomSSFPS = 31;
+					if (parseInt(document.getElementById("qualityInputFPS").value) == 5) settings.CustomSSFPS = 6;
+
 					const StreamButtons = WebpackModules.getByProps("LY", "aW", "ws");
-					if(BdApi.getData("StreamPlus", "settings").CustomSSResolutionEnabled){
-						if(BdApi.getData("StreamPlus", "settings").CustomSSResolution != 0){
-							StreamButtons.LY.RESOLUTION_SOURCE = BdApi.getData("StreamPlus", "settings").CustomSSResolution;
-							StreamButtons.ND[0].resolution = BdApi.getData("StreamPlus", "settings").CustomSSResolution;
-							StreamButtons.ND[1].resolution = BdApi.getData("StreamPlus", "settings").CustomSSResolution;
-							StreamButtons.ND[2].resolution = BdApi.getData("StreamPlus", "settings").CustomSSResolution;
-							StreamButtons.ND[3].resolution = BdApi.getData("StreamPlus", "settings").CustomSSResolution;
-							StreamButtons.WC[2].value = BdApi.getData("StreamPlus", "settings").CustomSSResolution;
-							delete StreamButtons.WC[2].label;
-							StreamButtons.WC[2].label = BdApi.getData("StreamPlus", "settings").CustomSSResolution.toString();
-							StreamButtons.km[3].value = BdApi.getData("StreamPlus", "settings").CustomSSResolution;
-							delete StreamButtons.km[3].label;
-							StreamButtons.km[3].label = BdApi.getData("StreamPlus", "settings").CustomSSResolution + "p";
-						}
-					}
-					if(!BdApi.getData("StreamPlus", "settings").CustomSSResolutionEnabled || (BdApi.getData("StreamPlus", "settings").CustomSSResolution == 0)){
-						StreamButtons.LY.RESOLUTION_SOURCE = 0;
-						StreamButtons.ND[0].resolution = 0;
-						StreamButtons.ND[1].resolution = 0;
-						StreamButtons.ND[2].resolution = 0;
-						StreamButtons.ND[3].resolution = 0;
-						StreamButtons.WC[2].value = 0;
+					if (settings.CustomSSResolutionEnabled && settings.CustomSSResolution != 0) {
+						delete StreamButtons.LY.RESOLUTION_1440
+						StreamButtons.LY.RESOLUTION_1440 = settings.CustomSSResolution;
+						StreamButtons.ND[4].resolution = settings.CustomSSResolution;
+						StreamButtons.ND[5].resolution = settings.CustomSSResolution;
+						StreamButtons.ND[6].resolution = settings.CustomSSResolution;
+						StreamButtons.WC[2].value = settings.CustomSSResolution;
 						delete StreamButtons.WC[2].label;
-						StreamButtons.WC[2].label = "Source";
-						StreamButtons.km[3].value = 0;
+						StreamButtons.WC[2].label = settings.CustomSSResolution.toString();
+						StreamButtons.km[3].value = settings.CustomSSResolution;
 						delete StreamButtons.km[3].label;
-						StreamButtons.km[3].label = "Source";
+						StreamButtons.km[3].label = settings.CustomSSResolution + "p";
 					}
-					
+					if (!settings.CustomSSResolutionEnabled || (settings.CustomSSResolution == 0)) {
+						delete StreamButtons.LY.RESOLUTION_1440
+						StreamButtons.LY.RESOLUTION_1440 = 1440;
+						StreamButtons.ND[4].resolution = 1440;
+						StreamButtons.ND[5].resolution = 1440;
+						StreamButtons.ND[6].resolution = 1440;
+						StreamButtons.WC[2].value = 1440;
+						delete StreamButtons.WC[2].label;
+						StreamButtons.WC[2].label = "1440p";
+						StreamButtons.km[3].value = 1440;
+						delete StreamButtons.km[3].label;
+						StreamButtons.km[3].label = "1440p";
+					}
+
 					function replace60FPSRequirements(x) {
-						if(x.fps != 30 && x.fps != 15 && x.fps != 5) x.fps = BdApi.getData("StreamPlus", "settings").CustomSSFPS;
+						if (x.fps != 30 && x.fps != 15 && x.fps != 5) x.fps = settings.CustomSSFPS;
 					}
+
 					function restore60FPSRequirements(x) {
-						if(x.fps != 30 && x.fps != 15 && x.fps != 5) x.fps = 60;
+						if (x.fps != 30 && x.fps != 15 && x.fps != 5) x.fps = 60;
 					}
-					if(BdApi.getData("StreamPlus", "settings").CustomSSFPSEnabled){
-						if(this.CustomSSFPS != 60){
+					if (settings.CustomSSFPSEnabled) {
+						if (this.CustomSSFPS != 60) {
 							StreamButtons.ND.forEach(replace60FPSRequirements);
-							StreamButtons.af[2].value = BdApi.getData("StreamPlus", "settings").CustomSSFPS;
+							StreamButtons.af[2].value = settings.CustomSSFPS;
 							delete StreamButtons.af[2].label;
-							StreamButtons.af[2].label = BdApi.getData("StreamPlus", "settings").CustomSSFPS + " FPS";
-							StreamButtons.k0[2].value = BdApi.getData("StreamPlus", "settings").CustomSSFPS;
+							StreamButtons.af[2].label = settings.CustomSSFPS + " FPS";
+							StreamButtons.k0[2].value = settings.CustomSSFPS;
 							delete StreamButtons.k0[2].label;
-							StreamButtons.k0[2].label = BdApi.getData("StreamPlus", "settings").CustomSSFPS;
-							StreamButtons.ws.FPS_60 = BdApi.getData("StreamPlus", "settings").CustomSSFPS;
+							StreamButtons.k0[2].label = settings.CustomSSFPS;
+							StreamButtons.ws.FPS_60 = settings.CustomSSFPS;
 						}
 					}
-					if(!(BdApi.getData("StreamPlus", "settings").CustomSSFPSEnabled)){
+					if (!(settings.CustomSSFPSEnabled)) {
 						StreamButtons.ND.forEach(restore60FPSRequirements);
 						StreamButtons.af[2].value = 60;
 						delete StreamButtons.af[2].label;
@@ -342,21 +357,11 @@ module.exports = (() => {
 						StreamButtons.ws.FPS_60 = 60;
 					}
 				}
-				audioShare(){
-					let shareModule = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byStrings("handleVoiceActivity")).prototype;
-					if(this.settings.audioSourcePID != 0){
-					BdApi.Patcher.before("StreamPlus", shareModule, "setSoundshareSource", (a,b) => {
-						if(this.settings.audioSourcePID == 0){
-							return
-						}
-						b[0] = this.settings.audioSourcePID;
-					});
-					}
-				}
-				videoQualityModule(){
-					let b = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byStrings("audioSSRC"));
-					let videoOptionFunctions = b.prototype;
-					if(this.settings.CustomSSBitrateEnabled){
+				videoQualityModule() {
+					const videoOptionFunctions = WebpackModules.getByProps("S", "Z").Z.prototype;
+					const videoModules = WebpackModules.getByPrototypes("_handleVideoStreamId").prototype
+
+					if (this.settings.CustomSSBitrateEnabled) {
 						BdApi.Patcher.before("StreamPlus", videoOptionFunctions, "updateVideoQuality", (e) => {
 							e.framerateReducer.sinkWants.qualityOverwrite.bitrateMin = (this.settings.SSminBitrate * 1000);
 							e.videoQualityManager.qualityOverwrite.bitrateMin = (this.settings.SSminBitrate * 1000);
@@ -367,21 +372,23 @@ module.exports = (() => {
 							e.voiceBitrate = (this.settings.voiceBitrate * 1000);
 						});
 					}
-					if(this.settings.CustomSSFPSEnabled){
+					if (this.settings.CustomSSFPSEnabled) {
 						BdApi.Patcher.before("StreamPlus", videoOptionFunctions, "updateVideoQuality", (e) => {
-							e.videoQualityManager.options.videoBudget.framerate = e.videoStreamParameters[0].maxFrameRate;
-							e.videoQualityManager.options.videoCapture.framerate = e.videoStreamParameters[0].maxFrameRate;
-							for(const ladder in e.videoQualityManager.ladder.ladder) {
-								e.videoQualityManager.ladder.ladder[ladder].framerate = e.videoStreamParameters[0].maxFrameRate;
-								e.videoQualityManager.ladder.ladder[ladder].mutedFramerate = parseInt(e.videoStreamParameters[0].maxFrameRate / 2);
+							if (e.stats?.camera !== undefined) return;
+							e.videoQualityManager.options.videoBudget.framerate = this.settings.CustomSSFPS;
+							e.videoQualityManager.options.videoCapture.framerate = this.settings.CustomSSFPS;
+							for (const ladder in e.videoQualityManager.ladder.ladder) {
+								e.videoQualityManager.ladder.ladder[ladder].framerate = this.settings.CustomSSFPS;
+								e.videoQualityManager.ladder.ladder[ladder].mutedFramerate = parseInt(this.settings.CustomSSFPS / 2);
 							}
-							for(const ladder of e.videoQualityManager.ladder.orderedLadder){
-								  ladder.framerate = e.videoStreamParameters[0].maxFrameRate;
-								  ladder.mutedFramerate = parseInt(e.videoStreamParameters[0].maxFrameRate / 2);
+							for (const ladder of e.videoQualityManager.ladder.orderedLadder) {
+								ladder.framerate = this.settings.CustomSSFPS;
+								ladder.mutedFramerate = parseInt(this.settings.CustomSSFPS / 2);
 							}
+							e.videoQualityManager.connection.remoteVideoSinkWants = this.settings.CustomSSFPS;
 						});
 					}
-					if(this.settings.CustomSSResolutionEnabled || this.settings.CustomSSFPSEnabled){
+					if (this.settings.CustomSSResolutionEnabled || this.settings.CustomSSFPSEnabled) {
 						BdApi.Patcher.before("StreamPlus", videoOptionFunctions, "updateVideoQuality", (e) => {
 							const videoQuality = new Object({
 								width: e.videoStreamParameters[0].maxResolution.width,
@@ -393,47 +400,86 @@ module.exports = (() => {
 							e.videoQualityManager.ladder.pixelBudget = (e.videoStreamParameters[0].maxResolution.height * e.videoStreamParameters[0].maxResolution.width);
 						});
 					}
-					if(this.settings.CameraSettingsEnabled){
-						BdApi.Patcher.after("StreamPlus", videoOptionFunctions, "updateVideoQuality", (e) => {
-							if(e.stats !== undefined){
-								if(e.stats.camera !== undefined){ 
-									if(e.videoStreamParameters[0] !== undefined){
-										e.videoStreamParameters[0].maxPixelCount = (this.settings.CameraHeight * this.settings.CameraWidth);
-										if(e.videoStreamParameters[0].maxResolution.height){
-										if(this.settings.CameraHeight >= 0){
-											e.videoStreamParameters[0].maxResolution.height = this.settings.CameraHeight;
-										}}
-										if(e.videoStreamParameters[0].maxResolution.width){
-										if(this.settings.CameraWidth >= 0){
-											e.videoStreamParameters[0].maxResolution.width = this.settings.CameraWidth;
-										}}
-									}
-									if(e.videoStreamParameters[1] !== undefined){
-										if(this.settings.CameraHeight >= 0){
-											e.videoStreamParameters[1].maxResolution.height = this.settings.CameraHeight;
+					if (this.settings.StreamCodec > 0) {
+						BdApi.Patcher.before("StreamPlus", videoOptionFunctions, "updateVideoQuality", (e) => {
+							let isCodecH264 = false;
+							let isCodecAV1 = false;
+							let isCodecVP8 = false;
+							let isCodecVP9 = false;
+							switch (this.settings.StreamCodec) {
+								case 1:
+									isCodecH264 = true;
+									break;
+								case 2:
+									isCodecAV1 = true;
+									break;
+								case 3:
+									isCodecVP8 = true;
+									break;
+								case 4:
+									isCodecVP9 = true;
+									break;
+							}
+							let currentHighestNum = 1;
+
+							function setPriority(codec) {
+								switch (codec) {
+									case 0:
+										if (isCodecH264) {
+											return 1;
+											break;
+										} else {
+											currentHighestNum += 1;
+											return currentHighestNum;
 										}
-										
-										if(this.settings.CameraWidth >= 0){
-											e.videoStreamParameters[1].maxResolution.width = this.settings.CameraWidth;
+										break;
+									case 1:
+										if (isCodecAV1) {
+											return 1;
+											break;
+										} else {
+											currentHighestNum += 1;
+											return currentHighestNum;
 										}
-									e.videoStreamParameters[1].maxPixelCount = (this.settings.CameraHeight * this.settings.CameraWidth);
-									}
-									if(this.settings.CameraWidth >= 0){
-										e.videoQualityManager.options.videoCapture.width = this.settings.CameraWidth;
-										e.videoQualityManager.options.videoBudget.width = this.settings.CameraWidth;
-									}
-									if(this.settings.CameraHeight >= 0){
-										e.videoQualityManager.options.videoCapture.height = this.settings.CameraHeight;
-										e.videoQualityManager.options.videoBudget.height = this.settings.CameraHeight;
-									}
-									e.videoQualityManager.ladder.pixelBudget = (this.settings.CameraHeight * this.settings.CameraWidth);
-									 
+										break;
+									case 2:
+										if (isCodecVP8) {
+											return 1;
+											break;
+										} else {
+											currentHighestNum += 1;
+											return currentHighestNum;
+										}
+										break;
+									case 3:
+										if (isCodecVP9) {
+											return 1;
+											break;
+										} else {
+											currentHighestNum += 1;
+											return currentHighestNum;
+										}
+										break;
 								}
 							}
-						});	
+							if (e.codecs != undefined && e.codecs[1]?.decode != undefined) {
+								e.codecs[2].decode = isCodecH264;
+								e.codecs[2].encode = isCodecH264;
+								e.codecs[2].priority = parseInt(setPriority(0));
+								e.codecs[1].decode = isCodecAV1;
+								e.codecs[1].encode = isCodecAV1;
+								e.codecs[1].priority = parseInt(setPriority(1));
+								e.codecs[3].decode = isCodecVP8;
+								e.codecs[3].encode = isCodecVP8;
+								e.codecs[3].priority = parseInt(setPriority(2));
+								e.codecs[4].decode = isCodecVP9;
+								e.codecs[4].encode = isCodecVP9;
+								e.codecs[4].priority = parseInt(setPriority(3));
+							}
+						});
 					}
 				}
-				buttonCreate(){
+				buttonCreate() {
 					let qualityButton = document.createElement('button');
 					qualityButton.id = 'qualityButton';
 					qualityButton.className = "lookFilled-1H2Jvj colorBrand-2M3O3N";
@@ -450,19 +496,19 @@ module.exports = (() => {
 					qualityButton.style.borderTopRightRadius = "4px";
 					qualityButton.style.borderBottomLeftRadius = "4px";
 					qualityButton.style.borderBottomRightRadius = "4px";
-					qualityButton.onclick = function(){
-					  if(qualityMenu.style.visibility == "hidden") {
-						qualityMenu.style.visibility = "visible";
-					  }else {
-						qualityMenu.style.visibility = "hidden";
-					  }
+					qualityButton.onclick = function () {
+						if (qualityMenu.style.visibility == "hidden") {
+							qualityMenu.style.visibility = "visible";
+						} else {
+							qualityMenu.style.visibility = "hidden";
+						}
 					}
-					
-					try{
+
+					try {
 						document.getElementsByClassName("container-YkUktl")[0].appendChild(qualityButton);
-						}catch(err){
-						console.warn("StreamPlus: What the fuck happened? During buttonCreate()");
-						console.log(err);
+					} catch (err) {
+						console.log("StreamPlus: Oopsie Daisy Occured During buttonCreate()");
+						console.error(err);
 					};
 					let qualityMenu = document.createElement('div');
 					qualityMenu.id = 'qualityMenu';
@@ -473,7 +519,7 @@ module.exports = (() => {
 					qualityMenu.style.left = "-59%";
 					qualityMenu.style.height = "20px";
 					qualityMenu.style.width = "100px";
-					qualityMenu.onclick = function(event){
+					qualityMenu.onclick = function (event) {
 						event.stopPropagation();
 					}
 					document.getElementById("qualityButton").appendChild(qualityMenu);
@@ -495,14 +541,16 @@ module.exports = (() => {
 					qualityMenu.appendChild(qualityInputFPS);
 				}
 				onStart() {
+					this.originalNitroStatus = WebpackModules.getByProps("getCurrentUser").getCurrentUser().premiumType;
+					this.previewInitial = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("isPreview")).isPreview;
 					this.saveAndUpdate();
 				}
 				onStop() {
 					Patcher.unpatchAll();
 					BdApi.Patcher.unpatchAll("StreamPlus");
-					if(document.getElementById("qualityButton")) document.getElementById("qualityButton").remove();
-					if(document.getElementById("qualityMenu")) document.getElementById("qualityMenu").remove();
-					if(document.getElementById("qualityInput")) document.getElementById("qualityInput").remove();
+					if (document.getElementById("qualityButton")) document.getElementById("qualityButton").remove();
+					if (document.getElementById("qualityMenu")) document.getElementById("qualityMenu").remove();
+					if (document.getElementById("qualityInput")) document.getElementById("qualityInput").remove();
 				}
 			};
 		};
