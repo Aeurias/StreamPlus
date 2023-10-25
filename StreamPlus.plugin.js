@@ -1,7 +1,7 @@
 /**
  * @name StreamPlus
  * @author Aeurias
- * @version 1.3.1
+ * @version 1.3.2
  * @source https://github.com/Aeurias/StreamPlus
  * @updateUrl https://raw.githubusercontent.com/Aeurias/StreamPlus/main/StreamPlus.plugin.js
  */
@@ -36,7 +36,7 @@ module.exports = (() => {
 			"authors": [{
 				"name": "Aeurias"
 			}],
-			"version": "1.3.1",
+			"version": "1.3.2",
 			"description": "Custom bitrate, FPS and resolution!",
 			"github": "https://github.com/Aeurias/StreamPlus",
 			"github_raw": "https://raw.githubusercontent.com/Aeurias/StreamPlus/main/StreamPlus.plugin.js"
@@ -175,20 +175,42 @@ module.exports = (() => {
 					if (this.settings.CustomSSFPS == 15) this.settings.CustomSSFPS = 16;
 					if (this.settings.CustomSSFPS == 30) this.settings.CustomSSFPS = 31;
 					if (this.settings.CustomSSFPS == 5) this.settings.CustomSSFPS = 6;
-					this.videoQualityModule();
+					try{
+						this.videoQualityModule(); //Quality Module
+					}catch(err){
+						console.log("[StreamPlus]: Error occurred during videoQualityModule()");
+						console.error(err);
+					}
+
 					if (document.getElementById("qualityButton")) document.getElementById("qualityButton").remove();
 					if (document.getElementById("qualityMenu")) document.getElementById("qualityMenu").remove();
 					if (document.getElementById("qualityInput")) document.getElementById("qualityInput").remove();
-					this.buttonCreate();
-					document.getElementById("qualityInput").addEventListener("input", this.updateQuick);
-					document.getElementById("qualityInputFPS").addEventListener("input", this.updateQuick);
-					if (!this.settings.SettingDebugButton) {
-						if (document.getElementById("qualityButton") != undefined) document.getElementById("qualityButton").style.display = 'none'
-						if (document.getElementById("qualityMenu") != undefined) document.getElementById("qualityMenu").style.display = 'none'
+
+					try{
+						this.buttonCreate(); //Debug Quality Button
+					}catch(err){
+						console.error(err);
 					}
+					try{
+						document.getElementById("qualityInput").addEventListener("input", this.updateQuick);
+						document.getElementById("qualityInputFPS").addEventListener("input", this.updateQuick);
+						if(!this.settings.SettingDebugButton){
+							if(document.getElementById("qualityButton") != undefined) document.getElementById("qualityButton").style.display = 'none'
+							if(document.getElementById("qualityMenu") != undefined) document.getElementById("qualityMenu").style.display = 'none'
+						}
+					}catch(err){
+						console.error(err);
+					}
+
 					if (this.settings.CustomScreenSharingMain) {
-						this.customVideoSettings();
+						try{
+							this.customVideoSettings();
+						}catch(err){
+							console.error(err);
+						}
 					}
+
+					
 
 					try {
 						BdApi.DOM.removeStyle("StreamPlus")
@@ -196,12 +218,17 @@ module.exports = (() => {
 						console.log(err)
 					}
 
-					if (this.settings.removeScreenshareUpsell) {
-						BdApi.DOM.addStyle("StreamPlus", `
-						[class*="upsellBanner"] {
-						  display: none;
-						  visibility: hidden;
-						}`);
+					if(this.settings.removeScreenshareUpsell){
+						try{
+							BdApi.DOM.addStyle("StreamPlus",`
+							[class*="upsellBanner"] {
+							  display: none;
+							  visibility: hidden;
+							}`);
+						}catch(err){
+							console.error(err);
+						}
+
 					}
 				}
 				async customVideoSettings() {
@@ -505,11 +532,15 @@ module.exports = (() => {
 					}
 
 					try {
-						document.getElementsByClassName("container-YkUktl")[0].appendChild(qualityButton);
+						document.getElementsByClassName("container-1CH86i")[0].appendChild(qualityButton);
 					} catch (err) {
-						console.log("StreamPlus: Oopsie Daisy Occured During buttonCreate()");
-						console.error(err);
-					};
+						try{
+							document.getElementsByClassName("container-YkUktl")[0].appendChild(qualityButton);
+						}catch(err){
+							console.log("Stream Plus: Error during buttonCreate()");
+							console.error(err);
+						}
+					}
 					let qualityMenu = document.createElement('div');
 					qualityMenu.id = 'qualityMenu';
 					qualityMenu.style.visibility = 'hidden';
