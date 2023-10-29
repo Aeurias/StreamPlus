@@ -1,7 +1,7 @@
 /**
  * @name StreamPlus
  * @author Aeurias
- * @version 1.3.2
+ * @version 1.4.0
  * @source https://github.com/Aeurias/StreamPlus
  * @updateUrl https://raw.githubusercontent.com/Aeurias/StreamPlus/main/StreamPlus.plugin.js
  */
@@ -36,7 +36,7 @@ module.exports = (() => {
 			"authors": [{
 				"name": "Aeurias"
 			}],
-			"version": "1.3.2",
+			"version": "1.4.0",
 			"description": "Custom bitrate, FPS and resolution!",
 			"github": "https://github.com/Aeurias/StreamPlus",
 			"github_raw": "https://raw.githubusercontent.com/Aeurias/StreamPlus/main/StreamPlus.plugin.js"
@@ -82,7 +82,8 @@ module.exports = (() => {
 				Settings,
 				Toasts,
 				Utilities,
-				WebpackModules
+				WebpackModules,
+				DiscordClassModules
 			} = Api;
 			return class StreamPlus extends Plugin {
 				defaultSettings = {
@@ -106,7 +107,7 @@ module.exports = (() => {
 						new Settings.SettingGroup("Custom Screen Share Settings").append(...[
 							new Settings.Switch("High Quality Custom Screensharing", "'OpenH264' and 'Hardware Accelerated Encode': Enabled, with 'AV1 Video Codec': Disabled recommended in Discord's 'Voice & Video' setting panel.", this.settings.CustomScreenSharingMain, value => this.settings.CustomScreenSharingMain = value),
 							new Settings.Switch("Custom High Frame Rate Screenshare", "Enables beyond 60 FPS framerate for screenshare, upto 360 FPS or to limits of your encoder/PC.", this.settings.CustomSSFPSEnabled, value => this.settings.CustomSSFPSEnabled = value),
-							new Settings.Textbox("Custom FPS", "Values between 24-120 Recommended. 24 for anime/film, 72-90 for VR content, 72-120 for everything else. Try to sync with ingame FPS for fluidity, and set a FPS limit ingame so you can free up some GPU resources for encoding to work properly.", this.settings.CustomSSFPS,
+							new Settings.Textbox("Custom FPS", "Values between 24-120 Recommended. 24 for anime/film, 72-90 for VR content, 72-120 for everything else. Try to sync with in game FPS for fluidity, and set a FPS limit in game so you can free up some GPU resources for encoding to work properly.", this.settings.CustomSSFPS,
 								value => {
 									value = parseInt(value);
 									this.settings.CustomSSFPS = value;
@@ -160,6 +161,7 @@ module.exports = (() => {
 									this.settings.CustomSSResolution = value;
 								}),
 							new Settings.Switch("Stream Settings Debug Button", "Adds a button to switch your resolution/fps quickly for testing", this.settings.SettingDebugButton, value => this.settings.SettingDebugButton = value),
+							new Settings.Switch("Remove Screen Share Nitro Upsell", "Removes the Nitro upsell in the Screen Share quality option menu.", this.settings.removeScreenshareUpsell, value => this.settings.removeScreenshareUpsell = value),
 							new Settings.Textbox("Voice Audio Bitrate", "Allows you to change the bitrate to whatever you want. Does not allow you to go over the voice channel's set bitrate but it does allow you to go much lower. (bitrate in kbps).", this.settings.voiceBitrate,
 								value => {
 									value = parseFloat(value);
@@ -195,8 +197,8 @@ module.exports = (() => {
 						document.getElementById("qualityInput").addEventListener("input", this.updateQuick);
 						document.getElementById("qualityInputFPS").addEventListener("input", this.updateQuick);
 						if(!this.settings.SettingDebugButton){
-							if(document.getElementById("qualityButton") != undefined) document.getElementById("qualityButton").style.display = 'none'
-							if(document.getElementById("qualityMenu") != undefined) document.getElementById("qualityMenu").style.display = 'none'
+							if(document.getElementById("qualityButton") != undefined) document.getElementById("qualityButton").style.display = 'none';
+							if(document.getElementById("qualityMenu") != undefined) document.getElementById("qualityMenu").style.display = 'none';
 						}
 					}catch(err){
 						console.error(err);
@@ -215,16 +217,16 @@ module.exports = (() => {
 					try {
 						BdApi.DOM.removeStyle("StreamPlus")
 					} catch (err) {
-						console.log(err)
+						console.warn(err)
 					}
 
 					if(this.settings.removeScreenshareUpsell){
 						try{
 							BdApi.DOM.addStyle("StreamPlus",`
 							[class*="upsellBanner"] {
-							  display: none;
-							  visibility: hidden;
-							}`);
+								display: none;
+								visibility: hidden;
+							  }`);
 						}catch(err){
 							console.error(err);
 						}
@@ -232,32 +234,34 @@ module.exports = (() => {
 					}
 				}
 				async customVideoSettings() {
-					const StreamButtons = WebpackModules.getByProps("LY", "aW", "ws");
+					const StreamButtons = WebpackModules.getByProps("ApplicationStreamFPSButtons", "ApplicationStreamResolutionButtons");
 					if (this.settings.CustomSSResolutionEnabled && this.settings.CustomSSResolution != 0) {
-						delete StreamButtons.LY.RESOLUTION_1440
-						StreamButtons.LY.RESOLUTION_1440 = this.settings.CustomSSResolution;
-						StreamButtons.ND[4].resolution = this.settings.CustomSSResolution;
-						StreamButtons.ND[5].resolution = this.settings.CustomSSResolution;
-						StreamButtons.ND[6].resolution = this.settings.CustomSSResolution;
-						StreamButtons.WC[2].value = this.settings.CustomSSResolution;
-						delete StreamButtons.WC[2].label;
-						StreamButtons.WC[2].label = this.settings.CustomSSResolution.toString();
-						StreamButtons.km[3].value = this.settings.CustomSSResolution;
-						delete StreamButtons.km[3].label;
-						StreamButtons.km[3].label = this.settings.CustomSSResolution + "p";
+						delete StreamButtons.ApplicationStreamResolutions.RESOLUTION_1440
+						StreamButtons.ApplicationStreamResolutions.RESOLUTION_1440 = this.settings.CustomSSResolution;
+						StreamButtons.ApplicationStreamSettingRequirements[4].resolution = this.settings.CustomSSResolution;
+						StreamButtons.ApplicationStreamSettingRequirements[5].resolution = this.settings.CustomSSResolution;
+						StreamButtons.ApplicationStreamSettingRequirements[6].resolution = this.settings.CustomSSResolution;
+						StreamButtons.ApplicationStreamResolutionButtons[2].value = this.settings.CustomSSResolution;
+						delete StreamButtons.ApplicationStreamResolutionButtons[2].label;
+						StreamButtons.ApplicationStreamResolutionButtons[2].label = this.settings.CustomSSResolution.toString();
+						StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].value = this.settings.CustomSSResolution;
+						delete StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].label;
+						StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].label = this.settings.CustomSSResolution + "p";
 					}
+
+					CustomSSResolution
 					if (!this.settings.CustomSSResolutionEnabled || (this.settings.CustomSSResolution == 0)) {
-						delete StreamButtons.LY.RESOLUTION_1440
-						StreamButtons.LY.RESOLUTION_1440 = 1440;
-						StreamButtons.ND[4].resolution = 1440;
-						StreamButtons.ND[5].resolution = 1440;
-						StreamButtons.ND[6].resolution = 1440;
-						StreamButtons.WC[2].value = 1440;
-						delete StreamButtons.WC[2].label;
-						StreamButtons.WC[2].label = "1440";
-						StreamButtons.km[3].value = 1440;
-						delete StreamButtons.km[3].label;
-						StreamButtons.km[3].label = "1440p";
+						delete StreamButtons.ApplicationStreamResolutions.RESOLUTION_1440
+						StreamButtons.ApplicationStreamResolutions.RESOLUTION_1440 = 1440;
+						StreamButtons.ApplicationStreamSettingRequirements[4].resolution = 1440;
+						StreamButtons.ApplicationStreamSettingRequirements[5].resolution = 1440;
+						StreamButtons.ApplicationStreamSettingRequirements[6].resolution = 1440;
+						StreamButtons.ApplicationStreamResolutionButtons[2].value = 1440;
+						delete StreamButtons.ApplicationStreamResolutionButtons[2].label;
+						StreamButtons.ApplicationStreamResolutionButtons[2].label = "1440";
+						StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].value = 1440;
+						delete StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].label;
+						StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].label = "1440p";
 					}
 
 					function removeQualityParameters(x) {
@@ -268,7 +272,7 @@ module.exports = (() => {
 							delete x.guildPremiumTier
 						} catch (err) {}
 					}
-					StreamButtons.ND.forEach(removeQualityParameters)
+					StreamButtons.ApplicationStreamSettingRequirements.forEach(removeQualityParameters)
 
 					function replace60FPSRequirements(x) {
 						if (x.fps != 30 && x.fps != 15 && x.fps != 5) x.fps = BdApi.getData("StreamPlus", "settings").CustomSSFPS;
@@ -279,25 +283,25 @@ module.exports = (() => {
 					}
 					if (this.settings.CustomSSFPSEnabled) {
 						if (this.CustomSSFPS != 60) {
-							StreamButtons.ND.forEach(replace60FPSRequirements);
-							StreamButtons.af[2].value = this.settings.CustomSSFPS;
-							delete StreamButtons.af[2].label;
-							StreamButtons.af[2].label = this.settings.CustomSSFPS + " FPS";
-							StreamButtons.k0[2].value = this.settings.CustomSSFPS;
-							delete StreamButtons.k0[2].label;
-							StreamButtons.k0[2].label = this.settings.CustomSSFPS;
-							StreamButtons.ws.FPS_60 = this.settings.CustomSSFPS;
+							StreamButtons.ApplicationStreamSettingRequirements.forEach(replace60FPSRequirements);
+							StreamButtons.ApplicationStreamFPSButtonsWithSuffixLabel[2].value = this.settings.CustomSSFPS;
+							delete StreamButtons.ApplicationStreamFPSButtonsWithSuffixLabel[2].label;
+							StreamButtons.ApplicationStreamFPSButtonsWithSuffixLabel[2].label = this.settings.CustomSSFPS + " FPS";
+							StreamButtons.ApplicationStreamFPSButtons[2].value = this.settings.CustomSSFPS;
+							delete StreamButtons.ApplicationStreamFPSButtons[2].label;
+							StreamButtons.ApplicationStreamFPSButtons[2].label = this.settings.CustomSSFPS;
+							StreamButtons.ApplicationStreamFPS.FPS_60 = this.settings.CustomSSFPS;
 						}
 					}
-					if (!this.settings.CustomSSFPSEnabled || this.CustomSSFPS == 60) {
-						StreamButtons.ND.forEach(restore60FPSRequirements);
-						StreamButtons.af[2].value = 60;
-						delete StreamButtons.af[2].label;
-						StreamButtons.af[2].label = 60 + " FPS";
-						StreamButtons.k0[2].value = 60;
-						delete StreamButtons.k0[2].label;
-						StreamButtons.k0[2].label = 60;
-						StreamButtons.ws.FPS_60 = 60;
+					if (!this.settings.CustomSSFPSEnabled || this.CustomSSFPS == 60){
+						StreamButtons.ApplicationStreamSettingRequirements.forEach(restore60FPSRequirements);
+						StreamButtons.ApplicationStreamFPSButtonsWithSuffixLabel[2].value = 60;
+						delete StreamButtons.ApplicationStreamFPSButtonsWithSuffixLabel[2].label;
+						StreamButtons.ApplicationStreamFPSButtonsWithSuffixLabel[2].label = 60 + " FPS";
+						StreamButtons.ApplicationStreamFPSButtons[2].value = 60;
+						delete StreamButtons.ApplicationStreamFPSButtons[2].label;
+						StreamButtons.ApplicationStreamFPSButtons[2].label = 60;
+						StreamButtons.ApplicationStreamFPS.FPS_60 = 60;
 					}
 					const updateRemoteWantsFramerate = WebpackModules.getByPrototypes("updateRemoteWantsFramerate");
 					if (updateRemoteWantsFramerate != undefined) {
@@ -325,37 +329,36 @@ module.exports = (() => {
 					if (parseInt(document.getElementById("qualityInputFPS").value) == 15) settings.CustomSSFPS = 16;
 					if (parseInt(document.getElementById("qualityInputFPS").value) == 30) settings.CustomSSFPS = 31;
 					if (parseInt(document.getElementById("qualityInputFPS").value) == 5) settings.CustomSSFPS = 6;
-
-					const StreamButtons = WebpackModules.getByProps("LY", "aW", "ws");
+					const StreamButtons = WebpackModules.getByProps("ApplicationStreamFPSButtons", "ApplicationStreamResolutionButtons");
 					if (settings.CustomSSResolutionEnabled && settings.CustomSSResolution != 0) {
-						delete StreamButtons.LY.RESOLUTION_1440
-						StreamButtons.LY.RESOLUTION_1440 = settings.CustomSSResolution;
-						StreamButtons.ND[4].resolution = settings.CustomSSResolution;
-						StreamButtons.ND[5].resolution = settings.CustomSSResolution;
-						StreamButtons.ND[6].resolution = settings.CustomSSResolution;
-						StreamButtons.WC[2].value = settings.CustomSSResolution;
-						delete StreamButtons.WC[2].label;
-						StreamButtons.WC[2].label = settings.CustomSSResolution.toString();
-						StreamButtons.km[3].value = settings.CustomSSResolution;
-						delete StreamButtons.km[3].label;
-						StreamButtons.km[3].label = settings.CustomSSResolution + "p";
+						delete StreamButtons.ApplicationStreamResolutions.RESOLUTION_1440
+						StreamButtons.ApplicationStreamResolutions.RESOLUTION_1440 = settings.CustomSSResolution;
+						StreamButtons.ApplicationStreamSettingRequirements[4].resolution = settings.CustomSSResolution;
+						StreamButtons.ApplicationStreamSettingRequirements[5].resolution = settings.CustomSSResolution;
+						StreamButtons.ApplicationStreamSettingRequirements[6].resolution = settings.CustomSSResolution;
+						StreamButtons.ApplicationStreamResolutionButtons[2].value = settings.CustomSSResolution;
+						delete StreamButtons.ApplicationStreamResolutionButtons[2].label;
+						StreamButtons.ApplicationStreamResolutionButtons[2].label = settings.CustomSSResolution.toString();
+						StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].value = settings.CustomSSResolution;
+						delete StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].label;
+						StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].label = settings.CustomSSResolution + "p";
 					}
 					if (!settings.CustomSSResolutionEnabled || (settings.CustomSSResolution == 0)) {
-						delete StreamButtons.LY.RESOLUTION_1440
-						StreamButtons.LY.RESOLUTION_1440 = 1440;
-						StreamButtons.ND[4].resolution = 1440;
-						StreamButtons.ND[5].resolution = 1440;
-						StreamButtons.ND[6].resolution = 1440;
-						StreamButtons.WC[2].value = 1440;
-						delete StreamButtons.WC[2].label;
-						StreamButtons.WC[2].label = "1440p";
-						StreamButtons.km[3].value = 1440;
-						delete StreamButtons.km[3].label;
-						StreamButtons.km[3].label = "1440p";
+						delete StreamButtons.ApplicationStreamResolutions.RESOLUTION_1440
+						StreamButtons.ApplicationStreamResolutions.RESOLUTION_1440 = 1440;
+						StreamButtons.ApplicationStreamSettingRequirements[4].resolution = 1440;
+						StreamButtons.ApplicationStreamSettingRequirements[5].resolution = 1440;
+						StreamButtons.ApplicationStreamSettingRequirements[6].resolution = 1440;
+						StreamButtons.ApplicationStreamResolutionButtons[2].value = 1440;
+						delete StreamButtons.ApplicationStreamResolutionButtons[2].label;
+						StreamButtons.ApplicationStreamResolutionButtons[2].label = "1440";
+						StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].value = 1440;
+						delete StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].label;
+						StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].label = "1440p";
 					}
 
 					function replace60FPSRequirements(x) {
-						if (x.fps != 30 && x.fps != 15 && x.fps != 5) x.fps = settings.CustomSSFPS;
+						if(x.fps != 30 && x.fps != 15 && x.fps != 5) x.fps = BdApi.getData("StreamPlus","settings").CustomSSFPS;
 					}
 
 					function restore60FPSRequirements(x) {
@@ -363,29 +366,29 @@ module.exports = (() => {
 					}
 					if (settings.CustomSSFPSEnabled) {
 						if (this.CustomSSFPS != 60) {
-							StreamButtons.ND.forEach(replace60FPSRequirements);
-							StreamButtons.af[2].value = settings.CustomSSFPS;
-							delete StreamButtons.af[2].label;
-							StreamButtons.af[2].label = settings.CustomSSFPS + " FPS";
-							StreamButtons.k0[2].value = settings.CustomSSFPS;
-							delete StreamButtons.k0[2].label;
-							StreamButtons.k0[2].label = settings.CustomSSFPS;
-							StreamButtons.ws.FPS_60 = settings.CustomSSFPS;
+							StreamButtons.ApplicationStreamSettingRequirements.forEach(replace60FPSRequirements);
+							StreamButtons.ApplicationStreamFPSButtonsWithSuffixLabel[2].value = settings.CustomSSFPS;
+							delete StreamButtons.ApplicationStreamFPSButtonsWithSuffixLabel[2].label;
+							StreamButtons.ApplicationStreamFPSButtonsWithSuffixLabel[2].label = settings.CustomSSFPS + " FPS";
+							StreamButtons.ApplicationStreamFPSButtons[2].value = settings.CustomSSFPS;
+							delete StreamButtons.ApplicationStreamFPSButtons[2].label;
+							StreamButtons.ApplicationStreamFPSButtons[2].label = settings.CustomSSFPS;
+							StreamButtons.ApplicationStreamFPS.FPS_60 = settings.CustomSSFPS;
 						}
 					}
-					if (!(settings.CustomSSFPSEnabled)) {
-						StreamButtons.ND.forEach(restore60FPSRequirements);
-						StreamButtons.af[2].value = 60;
-						delete StreamButtons.af[2].label;
-						StreamButtons.af[2].label = 60 + " FPS";
-						StreamButtons.k0[2].value = 60;
-						delete StreamButtons.k0[2].label;
-						StreamButtons.k0[2].label = 60;
-						StreamButtons.ws.FPS_60 = 60;
+					if (!settings.CustomSSFPSEnabled || this.CustomSSFPS == 60){
+						StreamButtons.ApplicationStreamSettingRequirements.forEach(restore60FPSRequirements);
+						StreamButtons.ApplicationStreamFPSButtonsWithSuffixLabel[2].value = 60;
+						delete StreamButtons.ApplicationStreamFPSButtonsWithSuffixLabel[2].label;
+						StreamButtons.ApplicationStreamFPSButtonsWithSuffixLabel[2].label = 60 + " FPS";
+						StreamButtons.ApplicationStreamFPSButtons[2].value = 60;
+						delete StreamButtons.ApplicationStreamFPSButtons[2].label;
+						StreamButtons.ApplicationStreamFPSButtons[2].label = 60;
+						StreamButtons.ApplicationStreamFPS.FPS_60 = 60;
 					}
 				}
 				videoQualityModule() {
-					const videoOptionFunctions = WebpackModules.getByProps("S", "Z").Z.prototype;
+					const videoOptionFunctions = BdApi.Webpack.getByPrototypeKeys("updateVideoQuality").prototype;
 					const videoModules = WebpackModules.getByPrototypes("_handleVideoStreamId").prototype
 
 					if (this.settings.CustomSSBitrateEnabled) {
@@ -509,7 +512,8 @@ module.exports = (() => {
 				buttonCreate() {
 					let qualityButton = document.createElement('button');
 					qualityButton.id = 'qualityButton';
-					qualityButton.className = "lookFilled-1H2Jvj colorBrand-2M3O3N";
+					const buttonClasses = WebpackModules.getByProps("lookFilled", "button", "contents");
+					qualityButton.className = `${buttonClasses.lookFilled} ${buttonClasses.colorBrand}`;
 					qualityButton.innerHTML = '<p style="display: block-inline; margin-left: -6%; margin-top: -4.5%;">Quality</p>';
 					qualityButton.style.position = "relative";
 					qualityButton.style.zIndex = "2";
@@ -532,14 +536,10 @@ module.exports = (() => {
 					}
 
 					try {
-						document.getElementsByClassName("container-1CH86i")[0].appendChild(qualityButton);
+						document.getElementsByClassName(DiscordClassModules.AccountDetails.container)[0].appendChild(qualityButton);
 					} catch (err) {
-						try{
-							document.getElementsByClassName("container-YkUktl")[0].appendChild(qualityButton);
-						}catch(err){
-							console.log("Stream Plus: Error during buttonCreate()");
-							console.error(err);
-						}
+						console.log("StreamPlus: Error during buttonCreate()");
+						console.error(err);
 					}
 					let qualityMenu = document.createElement('div');
 					qualityMenu.id = 'qualityMenu';
@@ -572,6 +572,7 @@ module.exports = (() => {
 					qualityMenu.appendChild(qualityInputFPS);
 				}
 				onStart() {
+					ZLibrary.PluginUpdater.checkForUpdate(this.getName(), this.getVersion(), this._config.info.github_raw);
 					this.originalNitroStatus = WebpackModules.getByProps("getCurrentUser").getCurrentUser().premiumType;
 					this.previewInitial = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("isPreview")).isPreview;
 					this.saveAndUpdate();
