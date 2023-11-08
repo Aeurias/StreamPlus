@@ -1,7 +1,7 @@
 /**
  * @name StreamPlus
  * @author Aeurias
- * @version 1.4.1
+ * @version 1.4.2
  * @source https://github.com/Aeurias/StreamPlus
  * @updateUrl https://raw.githubusercontent.com/Aeurias/StreamPlus/main/StreamPlus.plugin.js
  */
@@ -36,7 +36,7 @@ module.exports = (() => {
 			"authors": [{
 				"name": "Aeurias"
 			}],
-			"version": "1.4.1",
+			"version": "1.4.2",
 			"description": "Custom bitrate, FPS and resolution!",
 			"github": "https://github.com/Aeurias/StreamPlus",
 			"github_raw": "https://raw.githubusercontent.com/Aeurias/StreamPlus/main/StreamPlus.plugin.js"
@@ -405,7 +405,7 @@ module.exports = (() => {
 							e.videoQualityManager.connection.remoteVideoSinkWants = this.settings.CustomSSFPS;
 						});
 					}
-					if (this.settings.CustomScreenSharingMaing) {
+					if (this.settings.CustomScreenSharingMain) {
 						BdApi.Patcher.before("StreamPlus", videoOptionFunctions, "updateVideoQuality", (e) => {
 							const videoQuality = new Object({
 								width: e.videoStreamParameters[0].maxResolution.width,
