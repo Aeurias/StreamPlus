@@ -1,7 +1,7 @@
 /**
  * @name StreamPlus
  * @author Aeurias
- * @version 1.4.0
+ * @version 1.4.1
  * @source https://github.com/Aeurias/StreamPlus
  * @updateUrl https://raw.githubusercontent.com/Aeurias/StreamPlus/main/StreamPlus.plugin.js
  */
@@ -36,7 +36,7 @@ module.exports = (() => {
 			"authors": [{
 				"name": "Aeurias"
 			}],
-			"version": "1.4.0",
+			"version": "1.4.1",
 			"description": "Custom bitrate, FPS and resolution!",
 			"github": "https://github.com/Aeurias/StreamPlus",
 			"github_raw": "https://raw.githubusercontent.com/Aeurias/StreamPlus/main/StreamPlus.plugin.js"
@@ -66,14 +66,14 @@ module.exports = (() => {
 				cancelText: "Cancel",
 				onConfirm: () => {
 					require("request").get("https://rauenzi.github.io/BDPluginLibrary/release/0PluginLibrary.plugin.js", async (error, response, body) => {
-						if (error) return require("electron").shell.openExternal("https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js");
+						if(error) return require("electron").shell.openExternal("https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js");
 						await new Promise(r => require("fs").writeFile(require("path").join(BdApi.Plugins.folder, "0PluginLibrary.plugin.js"), body, r));
 					});
 				}
 			});
 		}
-		start() {}
-		stop() {}
+		start() { }
+		stop() { }
 	} : (([Plugin, Api]) => {
 		const plugin = (Plugin, Api) => {
 			const {
@@ -83,7 +83,8 @@ module.exports = (() => {
 				Toasts,
 				Utilities,
 				WebpackModules,
-				DiscordClassModules
+				DiscordClassModules,
+				PluginUpdater
 			} = Api;
 			return class StreamPlus extends Plugin {
 				defaultSettings = {
@@ -128,32 +129,16 @@ module.exports = (() => {
 								value => {
 									value = parseFloat(value);
 									this.settings.SSminBitrate = value;
-								})
-						]),
-						new Settings.SettingGroup("Extra Settings").append(
-							new Settings.Dropdown("Preferred Stream Codec", "Forces the stream encode codec to the preferred selection.", this.settings.StreamCodec, [{
-									label: "Default/Disabled",
-									value: 0
-								},
-								{
-									label: "H.264",
-									value: 1
-								},
-								{
-									label: "AV1",
-									value: 2
-								},
-								{
-									label: "VP8",
-									value: 3
-								},
-								{
-									label: "VP9",
-									value: 4
-								}
-								], value => this.settings.StreamCodec = value, {
-									searchable: true
 								}),
+						]),
+						new Settings.SettingGroup("Extra Settings").append(...[
+							new Settings.Dropdown("Preferred Stream Codec", "Forces the stream encode codec to the preferred selection.", this.settings.StreamCodec, [
+								{label: "Default/Disabled", value: 0},
+								{label: "H.264", value: 1},
+								{label: "AV1", value: 2},
+								{label: "VP8", value: 3},
+								{label: "VP9", value: 4}], value => this.settings.StreamCodec = value, {searchable: true}
+							),
 							new Settings.Switch("Custom Screenshare Resolution", "Force stream to run non standard or non source capture resolutions. Use Source instead of this.", this.settings.CustomSSResolutionEnabled, value => this.settings.CustomSSResolutionEnabled = value),
 							new Settings.Textbox("Resolution", "The custom resolution you want (in pixels height)", this.settings.CustomSSResolution,
 								value => {
@@ -167,7 +152,7 @@ module.exports = (() => {
 									value = parseFloat(value);
 									this.settings.voiceBitrate = value;
 								})
-						)
+							])
 					])
 				}
 				saveAndUpdate() {
@@ -248,8 +233,6 @@ module.exports = (() => {
 						delete StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].label;
 						StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].label = this.settings.CustomSSResolution + "p";
 					}
-
-					CustomSSResolution
 					if (!this.settings.CustomSSResolutionEnabled || (this.settings.CustomSSResolution == 0)) {
 						delete StreamButtons.ApplicationStreamResolutions.RESOLUTION_1440
 						StreamButtons.ApplicationStreamResolutions.RESOLUTION_1440 = 1440;
@@ -263,21 +246,16 @@ module.exports = (() => {
 						delete StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].label;
 						StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].label = "1440p";
 					}
-
 					function removeQualityParameters(x) {
-						try {
-							delete x.quality
-						} catch (err) {}
-						try {
-							delete x.guildPremiumTier
-						} catch (err) {}
+						try {delete x.quality}
+						catch(err){}
+						try {delete x.guildPremiumTier}
+						catch(err){}
 					}
 					StreamButtons.ApplicationStreamSettingRequirements.forEach(removeQualityParameters)
-
 					function replace60FPSRequirements(x) {
 						if (x.fps != 30 && x.fps != 15 && x.fps != 5) x.fps = BdApi.getData("StreamPlus", "settings").CustomSSFPS;
 					}
-
 					function restore60FPSRequirements(x) {
 						if (x.fps != 30 && x.fps != 15 && x.fps != 5) x.fps = 60;
 					}
@@ -390,15 +368,24 @@ module.exports = (() => {
 				videoQualityModule() {
 					const videoOptionFunctions = BdApi.Webpack.getByPrototypeKeys("updateVideoQuality").prototype;
 					const videoModules = WebpackModules.getByPrototypes("_handleVideoStreamId").prototype
-
 					if (this.settings.CustomSSBitrateEnabled) {
 						BdApi.Patcher.before("StreamPlus", videoOptionFunctions, "updateVideoQuality", (e) => {
+							//Minimum Bitrate
 							e.framerateReducer.sinkWants.qualityOverwrite.bitrateMin = (this.settings.SSminBitrate * 1000);
 							e.videoQualityManager.qualityOverwrite.bitrateMin = (this.settings.SSminBitrate * 1000);
+							e.videoQualityManager.options.videoBitrateFloor = (this.settings.SSminBitrate * 1000);
+							e.videoQualityManager.options.videoBitrate.min = (this.settings.SSminBitrate * 1000);
+							e.videoQualityManager.options.desktopBitrate.min = (this.settings.SSminBitrate * 1000);
+							//Maximum Bitrate
 							e.framerateReducer.sinkWants.qualityOverwrite.bitrateMax = (this.settings.SSmaxBitrate * 1000);
 							e.videoQualityManager.qualityOverwrite.bitrateMax = (this.settings.SSmaxBitrate * 1000);
+							e.videoQualityManager.options.videoBitrate.max = (this.settings.SSmaxBitrate * 1000);
+							e.videoQualityManager.options.desktopBitrate.max = (this.settings.SSmaxBitrate * 1000);
+							//Target Bitrate
 							e.framerateReducer.sinkWants.qualityOverwrite.bitrateTarget = (this.settings.SStargetBitrate * 1000);
 							e.videoQualityManager.qualityOverwrite.bitrateTarget = (this.settings.SStargetBitrate * 1000);
+							e.videoQualityManager.options.desktopBitrate.target = (this.settings.SStargetBitrate * 1000);
+							//Audio Bitrate
 							e.voiceBitrate = (this.settings.voiceBitrate * 1000);
 						});
 					}
@@ -418,7 +405,7 @@ module.exports = (() => {
 							e.videoQualityManager.connection.remoteVideoSinkWants = this.settings.CustomSSFPS;
 						});
 					}
-					if (this.settings.CustomSSResolutionEnabled || this.settings.CustomSSFPSEnabled) {
+					if (this.settings.CustomScreenSharingMaing) {
 						BdApi.Patcher.before("StreamPlus", videoOptionFunctions, "updateVideoQuality", (e) => {
 							const videoQuality = new Object({
 								width: e.videoStreamParameters[0].maxResolution.width,
@@ -427,7 +414,17 @@ module.exports = (() => {
 							});
 							e.videoQualityManager.options.videoBudget = videoQuality;
 							e.videoQualityManager.options.videoCapture = videoQuality;
-							e.videoQualityManager.ladder.pixelBudget = (e.videoStreamParameters[0].maxResolution.height * e.videoStreamParameters[0].maxResolution.width);
+							e.videoQualityManager.ladder.pixelBudget = (videoQuality.height * videoQuality.width);
+							
+							for(const ladder in e.videoQualityManager.ladder.ladder) {
+								e.videoQualityManager.ladder.ladder[ladder].width = videoQuality.width * (ladder / 100);
+								e.videoQualityManager.ladder.ladder[ladder].height = videoQuality.height * (ladder / 100);
+							}
+							for(const ladder of e.videoQualityManager.ladder.orderedLadder){
+								ladder.width = videoQuality.width * (ladder.wantValue / 100);
+								ladder.height = videoQuality.height * (ladder.wantValue / 100);
+								ladder.pixelCount = ladder.width * ladder.height;
+							}
 						});
 					}
 					if (this.settings.StreamCodec > 0) {
@@ -451,7 +448,6 @@ module.exports = (() => {
 									break;
 							}
 							let currentHighestNum = 1;
-
 							function setPriority(codec) {
 								switch (codec) {
 									case 0:
@@ -572,7 +568,7 @@ module.exports = (() => {
 					qualityMenu.appendChild(qualityInputFPS);
 				}
 				onStart() {
-					ZLibrary.PluginUpdater.checkForUpdate(this.getName(), this.getVersion(), this._config.info.github_raw);
+					PluginUpdater.checkForUpdate(this.getName(), this.getVersion(), this._config.info.github_raw);
 					this.originalNitroStatus = WebpackModules.getByProps("getCurrentUser").getCurrentUser().premiumType;
 					this.previewInitial = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("isPreview")).isPreview;
 					this.saveAndUpdate();
