@@ -1,7 +1,7 @@
 /**
  * @name StreamPlus
  * @author Aeurias
- * @version 24.02.2024
+ * @version 26.04.2024
  * @source https://github.com/Aeurias/StreamPlus
  * @updateUrl https://raw.githubusercontent.com/Aeurias/StreamPlus/main/StreamPlus.plugin.js
  */
@@ -34,7 +34,7 @@ module.exports = (() => {
 			"authors": [{
 				"name": "Aeurias"
 			}],
-			"version": "24.02.2024",
+			"version": "26.04.2024",
 			"description": "Custom bitrate, FPS and resolution!",
 			"github": "https://github.com/Aeurias/StreamPlus",
 			"github_raw": "https://raw.githubusercontent.com/Aeurias/StreamPlus/main/StreamPlus.plugin.js"
@@ -81,7 +81,8 @@ module.exports = (() => {
 				Utilities,
 				WebpackModules,
 				DiscordClassModules,
-				PluginUpdater
+				PluginUpdater,
+				Logger
 			} = Api;
 			return class StreamPlus extends Plugin {
 				defaultSettings = {
@@ -91,10 +92,10 @@ module.exports = (() => {
 					"CustomSSResolutionEnabled": false,
 					"CustomSSResolution": 0,
 					"CustomSSBitrateEnabled": true,
-					"SSminBitrate": 10000,
-					"SSmaxBitrate": 22000,
-					"SStargetBitrate": 14000,
-					"voiceBitrate": 128,
+					"SSminBitrate": 8000,
+					"SSmaxBitrate": 19000,
+					"SStargetBitrate": 11000,
+					"voiceBitrate": 256,
 					"SettingDebugButton": false,
 					"StreamCodec": 0,
 					"removeScreenshareUpsell": true
@@ -130,12 +131,13 @@ module.exports = (() => {
 							new Settings.SettingGroup("Extra Settings").append(...[
 								new Settings.Dropdown("Preferred Stream Codec", "Forces the stream encode codec to the preferred selection.", this.settings.StreamCodec, [
 									{label: "Default/Disabled", value: 0},
-									{label: "H.264", value: 1},
-									{label: "AV1", value: 2},
-									{label: "VP8", value: 3},
-									{label: "VP9", value: 4}], value => this.settings.StreamCodec = value, {searchable: true}
+									{label: "H.265", value: 1},
+									{label: "H.264", value: 2},
+									{label: "AV1", value: 3},
+									{label: "VP8", value: 4},
+									{label: "VP9", value: 5}], value => this.settings.StreamCodec = value, {searchable: true}
 								),
-								new Settings.Switch("Custom Screenshare Resolution (BROKEN)", "Force stream to run non standard or non source capture resolutions.", this.settings.CustomSSResolutionEnabled, value => this.settings.CustomSSResolutionEnabled = value),
+								new Settings.Switch("Custom Screenshare Resolution", "Force stream to run non standard or non source capture resolutions.", this.settings.CustomSSResolutionEnabled, value => this.settings.CustomSSResolutionEnabled = value),
 								new Settings.Textbox("Resolution", "The custom resolution you want (in pixels height)", this.settings.CustomSSResolution,
 									value => {
 										value = parseInt(value, 10);
@@ -182,21 +184,19 @@ module.exports = (() => {
 						try{
 							this.customVideoSettings();
 						}catch(err){
-							console.log("[StreamPlus]: Error occurred during customVideoSettings;()");
-							console.error(err);
+							Logger.err(this.getName(), "Error occurred during customVideoSettings() " + err);
 						}
 						try{
 							this.videoQualityModule();
 						}catch(err){
-							console.log("[StreamPlus]: Error occurred during videoQualityModule();");
-							console.error(err);
+							Logger.err(this.getName(), "Error occurred during videoQualityModule() " + err);
 						}
 					}
 					if(this.hasAddedScreenshareUpsellStyle && !this.settings.removeScreenshareUpsell){
 						try{
 							BdApi.DOM.removeStyle("StreamPlus")
 						}catch(err){
-							console.warn(err)
+							Logger.warn(this.getName(), err);
 						}
 					}
 					if(this.settings.removeScreenshareUpsell && !this.hasAddedScreenshareUpsellStyle){
@@ -208,7 +208,7 @@ module.exports = (() => {
 							}`);
 							this.hasAddedScreenshareUpsellStyle = true;
 						}catch(err){
-							console.error(err);
+							Logger.err(this.getName(), err);
 						}
 					}
 					if(this.accountPanelRenderer == undefined) this.accountPanelRenderer = WebpackModules.getAllByProps("default").filter(obj => obj.default.toString().includes("useIsHomeSelected"))[0];
@@ -226,20 +226,34 @@ module.exports = (() => {
 				}
 				customVideoSettings() {
 					if(this.StreamButtons == undefined) this.StreamButtons = WebpackModules.getByProps("ApplicationStreamFPSButtons", "ApplicationStreamResolutionButtons");
+					//If you're trying to figure this shit out yourself, I recommend uncommenting the line below.
+					//console.log(this.StreamButtons);
+					//If custom resolution is enabled and the resolution is not set to 0,
 					if(this.settings.CustomSSResolutionEnabled && this.settings.CustomSSResolution != 0){
+						//some of these properties are marked as read only, but they still allow you to delete them
+						//so any time you see "delete", what we're doing is bypassing the read-only thing by deleting it and immediately remaking it.
 						delete this.StreamButtons.ApplicationStreamResolutions.RESOLUTION_1440
+						//Change 1440p resolution internally to custom resolution
 						this.StreamButtons.ApplicationStreamResolutions.RESOLUTION_1440 = this.settings.CustomSSResolution;
 						this.StreamButtons.ApplicationStreamSettingRequirements[4].resolution = this.settings.CustomSSResolution;
 						this.StreamButtons.ApplicationStreamSettingRequirements[5].resolution = this.settings.CustomSSResolution;
 						this.StreamButtons.ApplicationStreamSettingRequirements[6].resolution = this.settings.CustomSSResolution;
+						//Set resolution button value to custom resolution
 						this.StreamButtons.ApplicationStreamResolutionButtons[2].value = this.settings.CustomSSResolution;
 						delete this.StreamButtons.ApplicationStreamResolutionButtons[2].label;
+						//Set label of resolution button to custom resolution. This one is used in the popup window that appears before you start streaming.
 						this.StreamButtons.ApplicationStreamResolutionButtons[2].label = this.settings.CustomSSResolution.toString();
+
+						//Set value of button with suffix label to custom resolution
 						this.StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].value = this.settings.CustomSSResolution;
 						delete this.StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].label;
+						//Set label of button with suffix label to custom resolution with "p" after it, ex: "1440p"
+						//This one is used in the dropdown kind of menu after you've started streaming
 						this.StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].label = this.settings.CustomSSResolution + "p";
 					}
+					//If custom resolution tick is disabled or custom resolution is set to 0,
 					if(!this.settings.CustomSSResolutionEnabled || this.settings.CustomSSResolution == 0){
+						//Reset all values to defaults.
 						delete this.StreamButtons.ApplicationStreamResolutions.RESOLUTION_1440
 						this.StreamButtons.ApplicationStreamResolutions.RESOLUTION_1440 = 1440;
 						this.StreamButtons.ApplicationStreamSettingRequirements[4].resolution = 1440;
@@ -252,6 +266,7 @@ module.exports = (() => {
 						delete this.StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].label;
 						this.StreamButtons.ApplicationStreamResolutionButtonsWithSuffixLabel[3].label = "1440p";
 					}
+					//Removes stream setting requirements
 					function removeQualityParameters(x){
 						try{
 							delete x.quality
@@ -262,6 +277,9 @@ module.exports = (() => {
 						}catch(err){	
 						}
 					}
+					/*Remove each of the stream setting requirements 
+					(which basically just tell your client what premiumType / guildPremiumTier you need to access that resolution)
+					removing the setting requirements makes it default to thinking that every premiumType can use it.*/
 					this.StreamButtons.ApplicationStreamSettingRequirements.forEach(removeQualityParameters);
 					function replace60FPSRequirements(x) {
 						if(x.fps != 30 && x.fps != 15 && x.fps != 5) x.fps = BdApi.getData("StreamPlus","settings").CustomSSFPS;
@@ -269,19 +287,25 @@ module.exports = (() => {
 					function restore60FPSRequirements(x) {
 						if(x.fps != 30 && x.fps != 15 && x.fps != 5) x.fps = 60;
 					}
-					if(this.settings.CustomSSFPSEnabled){
-						if(this.CustomSSFPS != 60){
+					//If Custom FPS is enabled and does not equal 60,
+					if(this.settings.CustomSSFPSEnabled && this.CustomSSFPS != 60){
+						//remove FPS nitro requirements
 							this.StreamButtons.ApplicationStreamSettingRequirements.forEach(replace60FPSRequirements);
+							//set suffix label button value to the custom number
 							this.StreamButtons.ApplicationStreamFPSButtonsWithSuffixLabel[2].value = this.settings.CustomSSFPS;
 							delete this.StreamButtons.ApplicationStreamFPSButtonsWithSuffixLabel[2].label;
+							//set button suffix label with the correct number with " FPS" after it. ex: "75 FPS". This one is used in the dropdown kind of menu
 							this.StreamButtons.ApplicationStreamFPSButtonsWithSuffixLabel[2].label = this.settings.CustomSSFPS + " FPS";
+							//set fps button value to the correct number.
 							this.StreamButtons.ApplicationStreamFPSButtons[2].value = this.settings.CustomSSFPS;
 							delete this.StreamButtons.ApplicationStreamFPSButtons[2].label;
+							//set fps button label to the correct number. This one is used in the popup window that appears before you start streaming.
 							this.StreamButtons.ApplicationStreamFPSButtons[2].label = this.settings.CustomSSFPS;
 							this.StreamButtons.ApplicationStreamFPS.FPS_60 = this.settings.CustomSSFPS;
-						}
 					}
+					//If custom FPS toggle is disabled, or custom fps is set to the default of 60,
 					if(!this.settings.CustomSSFPSEnabled || this.CustomSSFPS == 60){
+						//Reset all values to defaults.
 						this.StreamButtons.ApplicationStreamSettingRequirements.forEach(restore60FPSRequirements);
 						this.StreamButtons.ApplicationStreamFPSButtonsWithSuffixLabel[2].value = 60;
 						delete this.StreamButtons.ApplicationStreamFPSButtonsWithSuffixLabel[2].label;
@@ -291,8 +315,9 @@ module.exports = (() => {
 						this.StreamButtons.ApplicationStreamFPSButtons[2].label = 60;
 						this.StreamButtons.ApplicationStreamFPS.FPS_60 = 60;
 					}
-				}
-				updateQuick(){
+				} //End of customVideoSettings()
+				updateQuick(){//Function that runs when the resolution/fps quick menu is changed.
+					//Refer to customVideoSettings function for comments on what this all does, since this code is just a copy-paste from there.
 					const settings = BdApi.getData("StreamPlus","settings");
 					parseInt(document.getElementById("qualityInput").value);
 					settings.CustomSSResolution = parseInt(document.getElementById("qualityInput").value);
@@ -356,8 +381,8 @@ module.exports = (() => {
 						StreamButtons.ApplicationStreamFPSButtons[2].label = 60;
 						StreamButtons.ApplicationStreamFPS.FPS_60 = 60;
 					}
-				}
-				videoQualityModule(){
+				} //End of updateQuick()
+				videoQualityModule(){ //Custom Bitrates, FPS, Resolution
 					if(this.videoOptionFunctions == undefined) this.videoOptionFunctions = BdApi.Webpack.getByPrototypeKeys("updateVideoQuality").prototype;
 					if(this.settings.CustomSSBitrateEnabled){
 						BdApi.Patcher.before("StreamPlus", this.videoOptionFunctions, "updateVideoQuality", (e) => {
@@ -387,36 +412,42 @@ module.exports = (() => {
 								e.voiceBitrate = (this.settings.voiceBitrate * 1000);
 								e.conn.setTransportOptions({
 									encodingVoiceBitRate: e.voiceBitrate
-								})
+								});
 							}
 						});
 					}
+					//Video quality bypasses if Custom FPS is enabled.
 					if(this.settings.CustomSSFPSEnabled){
 						BdApi.Patcher.before("StreamPlus", this.videoOptionFunctions, "updateVideoQuality", (e) => {
-							if(e.stats?.camera !== undefined) return;
+							if(e.stats?.camera !== undefined) return; //if camera is enabled, don't fuck with fps
 							e.videoQualityManager.options.videoBudget.framerate = this.settings.CustomSSFPS;
 							e.videoQualityManager.options.videoCapture.framerate = this.settings.CustomSSFPS;
-							for(const ladder in e.videoQualityManager.ladder.ladder) {
+							/*for(const ladder in e.videoQualityManager.ladder.ladder) {
 								e.videoQualityManager.ladder.ladder[ladder].framerate = this.settings.CustomSSFPS;
-								e.videoQualityManager.ladder.ladder[ladder].mutedFramerate = parseInt(this.settings.CustomSSFPS / 2);
+								//e.videoQualityManager.ladder.ladder[ladder].mutedFramerate = parseInt(this.settings.CustomSSFPS / 2);
 							}
 							for(const ladder of e.videoQualityManager.ladder.orderedLadder){
 								ladder.framerate = this.settings.CustomSSFPS;
-								ladder.mutedFramerate = parseInt(this.settings.CustomSSFPS / 2);
+								//ladder.mutedFramerate = parseInt(this.settings.CustomSSFPS / 2);
 							}
-							e.videoQualityManager.connection.remoteVideoSinkWants = this.settings.CustomSSFPS;
+							e.videoQualityManager.connection.remoteVideoSinkWants = this.settings.CustomSSFPS;*/
 						});
 					}
+					//If screen sharing bypasses are enabled,
 					if(this.settings.CustomScreenSharingMain){
 						BdApi.Patcher.before("StreamPlus", this.videoOptionFunctions, "updateVideoQuality", (e) => {
+							//Ensure video quality parameters match the stream parameters.
 							const videoQuality = new Object({
 								width: e.videoStreamParameters[0].maxResolution.width,
 								height: e.videoStreamParameters[0].maxResolution.height,
 								framerate: e.videoStreamParameters[0].maxFrameRate,
 							});
+							//Ensure video budget quality parameters match stream parameters
 							e.videoQualityManager.options.videoBudget = videoQuality;
+							//Ensure video capture quality parameters match stream parameters
 							e.videoQualityManager.options.videoCapture = videoQuality;
-							e.videoQualityManager.ladder.pixelBudget = (videoQuality.height * videoQuality.width);
+							//Ensure pixel budget matches stream resolution.
+							/*e.videoQualityManager.ladder.pixelBudget = (videoQuality.height * videoQuality.width);
 							
 							for(const ladder in e.videoQualityManager.ladder.ladder) {
 								e.videoQualityManager.ladder.ladder[ladder].width = videoQuality.width * (ladder / 100);
@@ -426,88 +457,104 @@ module.exports = (() => {
 								ladder.width = videoQuality.width * (ladder.wantValue / 100);
 								ladder.height = videoQuality.height * (ladder.wantValue / 100);
 								ladder.pixelCount = ladder.width * ladder.height;
-							}
+							}*/
 						});
 					}
-					if(this.settings.StreamCodec > 0){
+					if(this.settings.StreamCodec > 0){ // Video codecs
 						BdApi.Patcher.before("StreamPlus", this.videoOptionFunctions, "updateVideoQuality", (e) => {
+							//This code determines what codec was chosen
+							let isCodecH265 = false;
 							let isCodecH264 = false;
 							let isCodecAV1 = false;
 							let isCodecVP8 = false;
 							let isCodecVP9 = false;
 							switch(this.settings.StreamCodec){
 								case 1:
-									isCodecH264 = true;
+									isCodecH265 = true;
 									break;
 								case 2:
-									isCodecAV1 = true;
+									isCodecH264 = true;
 									break;
 								case 3:
-									isCodecVP8 = true;
+									isCodecAV1 = true;
 									break;
 								case 4:
+									isCodecVP8 = true;
+									break;
+								case 5:
 									isCodecVP9 = true;
 									break;
 							}
+							//This code determines what priorities to set each codec to based on which one was chosen by the user.
 							let currentHighestNum = 1;
 							function setPriority(codec){
 								switch(codec){
 									case 0:
-									if(isCodecH264){
-										return 1;
+										if(isCodecH265){
+											return 1;
+											break;
+										}else{
+											currentHighestNum += 1;
+											return currentHighestNum;
+										}
 										break;
-									}else{
-										currentHighestNum += 1;
-										return currentHighestNum;
-									}
-									break;
-								case 1:
-									if(isCodecAV1){
-										return 1;
+									case 1:
+										if(isCodecH264){
+											return 1;
+											break;
+										}else{
+											currentHighestNum += 1;
+											return currentHighestNum;
+										}
 										break;
-									}else{
-										currentHighestNum += 1;
-										return currentHighestNum;
-									}
-									break;
-								case 2:
-									if(isCodecVP8){
-										return 1;
+									case 2:
+										if(isCodecAV1){
+											return 1;
+											break;
+										}else{
+											currentHighestNum += 1;
+											return currentHighestNum;
+										}
 										break;
-									}else{
-										currentHighestNum += 1;
-										return currentHighestNum;
-									}
-									break;
-								case 3:
-									if(isCodecVP9){
-										return 1;
+									case 3:
+										if(isCodecVP8){
+											return 1;
+											break;
+										}else{
+											currentHighestNum += 1;
+											return currentHighestNum;
+										}
 										break;
-									}else{
-										currentHighestNum += 1;
-										return currentHighestNum;
-									}
-									break;
+									case 4:
+										if(isCodecVP9){
+											return 1;
+											break;
+										}else{
+											currentHighestNum += 1;
+											return currentHighestNum;
+										}
+										break;
 								}
 							}
+							//and this code sets the priorities based on the outputs of setPriority.
 							if(e.codecs != undefined && e.codecs[1]?.decode != undefined){
-								e.codecs[2].decode = isCodecH264;
+								e.codecs[1].decode = isCodecH265; //H.265
+								e.codecs[1].encode = isCodecH265;
+								e.codecs[1].priority = parseInt(setPriority(0));
+								e.codecs[2].decode = isCodecH264; //H.264
 								e.codecs[2].encode = isCodecH264;
-								e.codecs[2].priority = parseInt(setPriority(0));
-								e.codecs[1].decode = isCodecAV1;
-								e.codecs[1].encode = isCodecAV1;
-								e.codecs[1].priority = parseInt(setPriority(1));
-								e.codecs[3].decode = isCodecVP8;
+								e.codecs[2].priority = parseInt(setPriority(1));
+								e.codecs[3].decode = isCodecVP8; //VP8
 								e.codecs[3].encode = isCodecVP8;
 								e.codecs[3].priority = parseInt(setPriority(2));
-								e.codecs[4].decode = isCodecVP9;
+								e.codecs[4].decode = isCodecVP9; //VP9
 								e.codecs[4].encode = isCodecVP9;
 								e.codecs[4].priority = parseInt(setPriority(3));
 							}
 						});
 					}
-				}
-				buttonCreate(){
+				} //End of videoQualityModule()
+				buttonCreate(){ //Creates the FPS and Resolution Swapper
 					let qualityButton = document.createElement('button');
 					qualityButton.id = 'qualityButton';
 					qualityButton.className = `${this.buttonClassModule.lookFilled} ${this.buttonClassModule.colorBrand}`;
@@ -534,8 +581,7 @@ module.exports = (() => {
 					try{
 						document.getElementsByClassName(DiscordClassModules.AccountDetails.container)[0].appendChild(qualityButton);
 					}catch(err){
-						console.log("StreamPlus: Error during buttonCreate()");
-						console.error(err);
+						console.error("[StreamPlus:] Error during buttonCreate()" + err);
 					}
 					let qualityMenu = document.createElement('div');
 					qualityMenu.id = 'qualityMenu';
@@ -566,9 +612,10 @@ module.exports = (() => {
 					qualityInputFPS.style.zIndex = "1";
 					qualityInputFPS.value = this.settings.CustomSSFPS;
 					qualityMenu.appendChild(qualityInputFPS);
-				}
+				} //End of buttonCreate()
 				onStart() {
 					PluginUpdater.checkForUpdate(this.getName(), this.getVersion(), this._config.info.github_raw);
+					this.currentUser = WebpackModules.getByProps("getCurrentUser").getCurrentUser();
 					this.previewInitial = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("isPreview")).isPreview;
 					this.buttonClassModule = WebpackModules.getByProps("lookFilled", "button", "contents");
 					this.saveAndUpdate();
@@ -579,11 +626,7 @@ module.exports = (() => {
 					if(document.getElementById("qualityButton")) document.getElementById("qualityButton").remove();
 					if(document.getElementById("qualityMenu")) document.getElementById("qualityMenu").remove();
 					if(document.getElementById("qualityInput")) document.getElementById("qualityInput").remove();
-					try{
-						BdApi.DOM.removeStyle("StreamPlus");
-					}catch(err){
-						console.error(err);
-					}
+					BdApi.DOM.removeStyle("StreamPlus");
 				}
 			};
 		};
